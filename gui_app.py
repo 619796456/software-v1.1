@@ -23,14 +23,13 @@ class NetworkAnalyzerGUI:
         self.root = root
         self.root.title("网络配置智能分析与可视化工具")
         self.root.geometry("1200x860")
+        self.root.geometry("1050x740")
 
         self.current_file: Path | None = None
         self.last_payload: dict | None = None
         self.last_parsed = None
 
         self.device_var = tk.StringVar(value="设备-1")
-        # 兼容历史分支中仍引用 self.vendor_var 的代码，默认保持 auto 自动识别
-        self.vendor_var = tk.StringVar(value="auto")
         self.detected_vendor_var = tk.StringVar(value="未识别")
         self.report_dir_var = tk.StringVar(value=str(Path.home() / "Desktop"))
 
@@ -46,6 +45,12 @@ class NetworkAnalyzerGUI:
         style = ttk.Style()
         style.configure("Card.TLabelframe", background="#ffffff")
 
+        self.vendor_var = tk.StringVar(value="auto")
+        self.report_dir_var = tk.StringVar(value=str(Path.home() / "Desktop"))
+
+        self._build_ui()
+
+    def _build_ui(self) -> None:
         top = ttk.Frame(self.root, padding=10)
         top.pack(fill=tk.X)
 
@@ -56,6 +61,15 @@ class NetworkAnalyzerGUI:
 
         ttk.Label(top, text="报告路径:").grid(row=0, column=4, sticky=tk.W, padx=4)
         ttk.Entry(top, textvariable=self.report_dir_var, width=48).grid(row=0, column=5, sticky=tk.W, padx=4)
+        ttk.Entry(top, textvariable=self.device_var, width=22).grid(row=0, column=1, sticky=tk.W, padx=4)
+
+        ttk.Label(top, text="厂商:").grid(row=0, column=2, sticky=tk.W, padx=4)
+        ttk.Combobox(top, textvariable=self.vendor_var, values=["auto", "huawei", "h3c", "cisco"], width=10).grid(
+            row=0, column=3, sticky=tk.W, padx=4
+        )
+
+        ttk.Label(top, text="报告路径:").grid(row=0, column=4, sticky=tk.W, padx=4)
+        ttk.Entry(top, textvariable=self.report_dir_var, width=40).grid(row=0, column=5, sticky=tk.W, padx=4)
         ttk.Button(top, text="选择目录", command=self.choose_report_dir).grid(row=0, column=6, padx=4)
 
         btns = ttk.Frame(self.root, padding=(10, 0))
@@ -77,6 +91,8 @@ class NetworkAnalyzerGUI:
         paned.pack(fill=tk.BOTH, expand=True, padx=10, pady=8)
 
         io_frame = ttk.LabelFrame(paned, text="配置文本输入（可粘贴 / 拖拽txt / 点击上传）", padding=8)
+        io_frame = ttk.LabelFrame(self.root, text="配置文本（可直接粘贴）", padding=8)
+        io_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=8)
         self.input_text = ScrolledText(io_frame, wrap=tk.WORD, height=14, font=("Consolas", 10))
         self.input_text.pack(fill=tk.BOTH, expand=True)
         if DND_FILES and hasattr(self.input_text, "drop_target_register"):
@@ -117,6 +133,11 @@ class NetworkAnalyzerGUI:
         self.output_tabs.add(self.finding_tree.master, text="异常提示")
 
         paned.add(output_frame, weight=1)
+
+        result_frame = ttk.LabelFrame(self.root, text="分析结果", padding=8)
+        result_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+        self.result_text = ScrolledText(result_frame, wrap=tk.WORD, height=14, font=("Consolas", 10))
+        self.result_text.pack(fill=tk.BOTH, expand=True)
 
         hint = "安全声明：本工具仅本地解析文本，不执行配置、不调用外部命令、不访问网络。"
         ttk.Label(self.root, text=hint, foreground="#1565c0").pack(anchor=tk.W, padx=12, pady=(0, 8))
@@ -163,6 +184,22 @@ class NetworkAnalyzerGUI:
             if path.exists() and path.is_file() and path.suffix.lower() in {".txt", ".log", ".cfg", ".conf"}:
                 self._load_file(path)
                 return
+        self.current_file = Path(file_path)
+        content = self.current_file.read_text(encoding="utf-8", errors="ignore")
+        self.input_text.delete("1.0", tk.END)
+        self.input_text.insert(tk.END, content)
+        messagebox.showinfo("上传成功", f"已加载文件：{self.current_file}")
+
+
+    def _on_drop_file(self, event) -> None:
+        # TkDND 传值可能包含花括号/空格路径
+        dropped = event.data.strip().strip("{}")
+        path = Path(dropped)
+        if path.exists() and path.is_file():
+            self.current_file = path
+            content = path.read_text(encoding="utf-8", errors="ignore")
+            self.input_text.delete("1.0", tk.END)
+            self.input_text.insert(tk.END, content)
 
     def _build_payload(self) -> dict:
         text = self.input_text.get("1.0", tk.END).strip()
@@ -171,6 +208,8 @@ class NetworkAnalyzerGUI:
 
         # GUI中不要求用户手选厂商，统一自动识别
         parsed = parse_device_text(text=text, device_name=self.device_var.get().strip() or "设备-1", vendor=None)
+        vendor = None if self.vendor_var.get() == "auto" else self.vendor_var.get()
+        parsed = parse_device_text(text=text, device_name=self.device_var.get().strip() or "设备-1", vendor=vendor)
         findings = analyze_config(parsed)
         summary = summarize_network_state(parsed)
         topology = build_topology(parsed)
@@ -298,6 +337,8 @@ class NetworkAnalyzerGUI:
                 tag,
             )
 
+        return payload
+
     def analyze_text(self) -> None:
         try:
             payload = self._build_payload()
@@ -312,6 +353,19 @@ class NetworkAnalyzerGUI:
             messagebox.showwarning("分析完成", f"识别厂商: {payload['parsed']['vendor']}，发现 {len(payload['findings'])} 条异常/提示。")
         else:
             messagebox.showinfo("分析完成", f"识别厂商: {payload['parsed']['vendor']}，未发现异常。")
+        output = {
+            "设备": payload["parsed"]["device_name"],
+            "厂商": payload["parsed"]["vendor"],
+            "状态汇总": payload["summary"],
+            "异常提示": payload["findings"],
+        }
+        self.result_text.delete("1.0", tk.END)
+        self.result_text.insert(tk.END, json.dumps(output, ensure_ascii=False, indent=2))
+
+        if payload["findings"]:
+            messagebox.showwarning("分析完成", f"发现 {len(payload['findings'])} 条异常/非标准化提示，已高亮输出。")
+        else:
+            messagebox.showinfo("分析完成", "未发现异常。")
 
     def export_report(self) -> None:
         try:
@@ -344,6 +398,7 @@ class NetworkAnalyzerGUI:
             messagebox.showerror("拓扑绘制失败", f"{exc}\n请在本地安装: pip install matplotlib networkx")
         except Exception as exc:  # 防止点击无反应
             messagebox.showerror("拓扑绘制失败", f"发生异常: {exc}")
+        draw_topology(self.last_parsed, show=True)
 
 
 def run_gui() -> None:

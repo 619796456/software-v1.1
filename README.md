@@ -26,6 +26,7 @@
 ## 运行方式
 
 ### 1) GUI 模式（推荐，厂商自动识别）
+### 1) GUI 模式（推荐）
 
 ```bash
 python main.py --gui
