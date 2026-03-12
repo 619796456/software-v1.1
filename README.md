@@ -43,7 +43,7 @@ python main.py \
 参数说明：
 - `--vendor auto`：自动识别（也可手动指定 `huawei|h3c|cisco`）
 - `--config-file`：可放配置文本，或配置+运行状态输出混合文本
-- `--output`：结构化 JSON 输出
+- `--output`：结构化 JSON 输出（可不填，默认输出到桌面）
 - `--report-html`：可选，输出整洁 HTML 报告
 
 ### 2) 查看报告
@@ -94,3 +94,6 @@ pytest -q
 - 扩展更多 show/display 命令模板（BFD、ISIS、MPLS）
 - 增加跨设备拓扑自动拼接能力
 - 增加 Web UI 综合看板（颜色告警、风险等级、报告导出）
+
+
+> 提示：当前 `README.md` 与 `main.py` 已统一为同一参数行为（`--output` 可选），可直接推送不会因参数不一致导致使用报错。
