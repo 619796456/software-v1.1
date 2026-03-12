@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+
+import pytest
 from pathlib import Path
 
 from analyzer.analyzer import analyze_config, summarize_network_state
 from analyzer.parser import detect_vendor, parse_device_text
-from analyzer.report import build_html_report
-from analyzer.visualize import build_topology
+from analyzer.report import build_html_report, build_text_report
+from analyzer.visualize import build_topology, draw_topology
 
 
 HUAWEI_SAMPLE = """
@@ -151,3 +153,28 @@ def test_cli_generates_json_and_html(tmp_path: Path) -> None:
     assert payload["parsed"]["vendor"] == "cisco"
     assert out_html.exists()
     assert "站场网络配置智能分析报告" in out_html.read_text(encoding="utf-8")
+
+
+def test_text_report_and_topology_image(tmp_path: Path) -> None:
+    parsed = parse_device_text(HUAWEI_SAMPLE, "Station-R1")
+    payload = {
+        "parsed": {
+            "device_name": parsed.device_name,
+            "vendor": parsed.vendor,
+            "local_as": parsed.local_as,
+        },
+        "summary": summarize_network_state(parsed),
+        "findings": analyze_config(parsed),
+        "topology": build_topology(parsed),
+    }
+
+    txt = build_text_report(payload)
+    assert "网络配置智能分析报告" in txt
+
+    out_png = tmp_path / "topology.png"
+    try:
+        saved = draw_topology(parsed, output_path=out_png, show=False)
+    except RuntimeError:
+        pytest.skip("matplotlib/networkx not installed in test environment")
+    assert saved is not None
+    assert out_png.exists()

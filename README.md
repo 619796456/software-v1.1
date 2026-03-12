@@ -1,32 +1,43 @@
-# 站场网络配置智能分析与可视化工具（离线版）
+# 网络配置智能分析与可视化工具（离线本地版）
 
-本项目是一个**可本地部署、数据自主可控**的站场网络配置与运行状态智能分析小工具，支持华为、H3C、思科（Cisco）等主流设备配置文本与运行输出的统一解析。
+本项目是一个**纯本地运行**的网络配置智能分析工具，支持华为、H3C、思科（Cisco）配置与运行状态文本解析，提供异常提示、拓扑可视化（`networkx + matplotlib`）与报告导出。
 
-## 你能直接用它做什么
+## 安全特性
 
-- 上传/读取设备配置与运行状态文本，自动识别厂商并结构化解析
-- 自动识别 BGP/OSPF/VRRP/接口状态异常
-- 输出路由统计（总路由、直连、静态、BGP、OSPF）
-- 自动生成拓扑数据（`nodes/links`）
-- 生成**整洁美观的 HTML 分析报告**（离线可打开）
+- 全部解析在本地完成，不访问网络
+- 不执行配置内容，不调用上传文本中的任何命令
+- 仅做文本解析、规则匹配、图形绘制与本地文件保存
 
-## 项目结构
+## 功能概览
 
-```text
-.
-├── analyzer
-│   ├── parser.py       # 多厂商配置+运行态解析、厂商识别
-│   ├── analyzer.py     # 协议状态/接口状态/标准化规则分析 + 汇总
-│   ├── visualize.py    # 拓扑 JSON 生成
-│   └── report.py       # HTML 可视化报告生成
-├── tests
-│   └── test_pipeline.py
-└── main.py             # CLI 入口
+- 配置输入：
+  - 图形界面粘贴文本
+  - 选择上传 `.txt` 文件
+- 多厂商解析：华为 / H3C / Cisco（支持自动识别）
+- 提取信息：
+  - 接口状态（物理管理状态、协议状态、端口信息）
+  - BGP / OSPF 邻居状态与 uptime
+  - VRRP 主备与优先级
+  - 路由统计（总路由、直连、静态、BGP、OSPF）
+- 智能分析：自动检测协议异常、链路异常、非标准化配置提示
+- 可视化：拓扑图中文标签（节点、接口、IP、邻居状态）
+- 报告：导出 TXT + HTML 报告，默认目录可设为桌面
+
+## 运行方式
+
+### 1) GUI 模式（推荐）
+
+```bash
+python main.py --gui
 ```
 
-## 快速开始
+若不传任何 CLI 参数，也会默认启动 GUI：
 
-### 1) 运行分析并导出 JSON + HTML 报告
+```bash
+python main.py
+```
+
+### 2) CLI 模式
 
 ```bash
 python main.py \
@@ -34,44 +45,12 @@ python main.py \
   --config-file sample.txt \
   --output result.json \
   --report-html report.html \
+  --report-txt report.txt \
   --vendor auto
 ```
 
-参数说明：
-- `--vendor auto`：自动识别（也可手动指定 `huawei|h3c|cisco`）
-- `--config-file`：可放配置文本，或配置+运行状态输出混合文本
-- `--output`：结构化 JSON 输出
-- `--report-html`：可选，输出整洁 HTML 报告
-
-### 2) 查看报告
-
-直接双击 `report.html` 或在浏览器打开，即可看到综合状态卡片、异常提示表格、拓扑摘要。
-
-## 输出结构
-
-`result.json` 包含：
-- `parsed`：结构化配置与运行态
-- `summary`：接口/协议/路由汇总统计
-- `findings`：异常与非标准化提示
-- `topology`：可视化拓扑数据
-
 ## 测试
-
-在你的 Python 环境运行：
 
 ```bash
 pytest -q
 ```
-
-已覆盖：
-- 华为/思科配置解析和运行态识别
-- 厂商自动识别
-- 规则分析与摘要统计
-- HTML 报告生成
-- CLI 端到端（JSON + HTML 输出）
-
-## 后续建议
-
-- 扩展更多 show/display 命令模板（BFD、ISIS、MPLS）
-- 增加跨设备拓扑自动拼接能力
-- 增加 Web UI 综合看板（颜色告警、风险等级、报告导出）
