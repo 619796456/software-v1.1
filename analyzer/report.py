@@ -11,12 +11,34 @@ def _finding_badge_class(severity: str) -> str:
     }.get(severity, "badge-low")
 
 
+def _summary_blocks(summary: dict) -> tuple[dict, dict, dict, dict]:
+    basic = summary.get("basic", {})
+    interfaces = summary.get("interfaces", {})
+    interface_legacy = summary.get("interface", {})
+
+    if not basic and interface_legacy:
+        basic = {"interface_count": interface_legacy.get("total", 0)}
+    if not interfaces and interface_legacy:
+        interfaces = {
+            "total": interface_legacy.get("total", 0),
+            "shutdown": interface_legacy.get("shutdown", 0),
+            "line_protocol_down": interface_legacy.get("line_protocol_down", 0),
+            "down_or_shutdown": interface_legacy.get("shutdown", 0) + interface_legacy.get("line_protocol_down", 0),
+            "up": interface_legacy.get("up", 0),
+        }
+
+    protocol = summary.get("protocol", {})
+    routing = summary.get("routing", {})
+    return basic, interfaces, protocol, routing
+
+
 def build_html_report(payload: dict) -> str:
     parsed = payload.get("parsed", {})
     summary = payload.get("summary", {})
     findings = payload.get("findings", [])
     topology = payload.get("topology", {})
 
+    basic, interfaces, protocol, routing = _summary_blocks(summary)
     basic = summary.get("basic", {})
     interfaces = summary.get("interfaces", {})
     protocol = summary.get("protocol", {})
@@ -100,6 +122,8 @@ def build_text_report(payload: dict) -> str:
     summary = payload.get("summary", {})
     findings = payload.get("findings", [])
 
+    basic, interfaces, protocol, routing = _summary_blocks(summary)
+
     lines = [
         "站场网络配置智能分析报告（离线）",
         "=" * 40,
@@ -108,6 +132,11 @@ def build_text_report(payload: dict) -> str:
         f"本地AS: {parsed.get('local_as', '-')}",
         "",
         "[接口与协议统计]",
+        f"接口总数: {basic.get('interface_count', 0)}",
+        f"接口异常数: {interfaces.get('down_or_shutdown', 0)}",
+        f"BGP 邻居: {protocol.get('bgp', {})}",
+        f"OSPF 邻居: {protocol.get('ospf', {})}",
+        f"路由统计: {routing}",
         f"接口总数: {summary.get('basic', {}).get('interface_count', 0)}",
         f"接口异常数: {summary.get('interfaces', {}).get('down_or_shutdown', 0)}",
         f"BGP 邻居: {summary.get('protocol', {}).get('bgp', {})}",

@@ -178,3 +178,14 @@ def test_text_report_and_topology_image(tmp_path: Path) -> None:
         pytest.skip("matplotlib/networkx not installed in test environment")
     assert saved is not None
     assert out_png.exists()
+
+
+def test_summary_contains_new_and_legacy_interface_keys() -> None:
+    parsed = parse_device_text(HUAWEI_SAMPLE, "Station-R1")
+    summary = summarize_network_state(parsed)
+
+    assert "basic" in summary
+    assert "interfaces" in summary
+    assert "interface" in summary
+    assert summary["basic"]["interface_count"] == 2
+    assert summary["interfaces"]["total"] == summary["interface"]["total"] == 2
