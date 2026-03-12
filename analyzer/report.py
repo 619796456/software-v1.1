@@ -17,8 +17,12 @@ def build_html_report(payload: dict) -> str:
     findings = payload.get("findings", [])
     topology = payload.get("topology", {})
 
-    basic = summary.get("basic", {})
-    interfaces = summary.get("interfaces", {})
+    interface = summary.get("interface", {})
+    interface_total = interface.get("total", summary.get("basic", {}).get("interface_count", 0))
+    interface_abnormal = interface.get(
+        "down_or_shutdown",
+        interface.get("shutdown", 0) + interface.get("line_protocol_down", 0),
+    )
     protocol = summary.get("protocol", {})
     routing = summary.get("routing", {})
 
@@ -69,8 +73,8 @@ def build_html_report(payload: dict) -> str:
 
     <h2>综合状态</h2>
     <div class='grid'>
-      <div class='card'><div class='label'>接口总数</div><div class='value'>{basic.get('interface_count', 0)}</div></div>
-      <div class='card'><div class='label'>接口异常数</div><div class='value'>{interfaces.get('down_or_shutdown', 0)}</div></div>
+      <div class='card'><div class='label'>接口总数</div><div class='value'>{interface_total}</div></div>
+      <div class='card'><div class='label'>接口异常数</div><div class='value'>{interface_abnormal}</div></div>
       <div class='card'><div class='label'>BGP 邻居 (总/正常/异常)</div><div class='value'>{protocol.get('bgp', {}).get('total', 0)} / {protocol.get('bgp', {}).get('established', 0)} / {protocol.get('bgp', {}).get('abnormal', 0)}</div></div>
       <div class='card'><div class='label'>OSPF 邻居 (总/正常/异常)</div><div class='value'>{protocol.get('ospf', {}).get('total', 0)} / {protocol.get('ospf', {}).get('healthy', 0)} / {protocol.get('ospf', {}).get('abnormal', 0)}</div></div>
       <div class='card'><div class='label'>路由统计 (总/直连/静态/BGP/OSPF)</div><div class='value'>{routing.get('total', 0)} / {routing.get('direct', 0)} / {routing.get('static', 0)} / {routing.get('bgp', 0)} / {routing.get('ospf', 0)}</div></div>
@@ -100,6 +104,13 @@ def build_text_report(payload: dict) -> str:
     summary = payload.get("summary", {})
     findings = payload.get("findings", [])
 
+    interface = summary.get("interface", {})
+    interface_total = interface.get("total", summary.get("basic", {}).get("interface_count", 0))
+    interface_abnormal = interface.get(
+        "down_or_shutdown",
+        interface.get("shutdown", 0) + interface.get("line_protocol_down", 0),
+    )
+
     lines = [
         "站场网络配置智能分析报告（离线）",
         "=" * 40,
@@ -108,8 +119,8 @@ def build_text_report(payload: dict) -> str:
         f"本地AS: {parsed.get('local_as', '-')}",
         "",
         "[接口与协议统计]",
-        f"接口总数: {summary.get('basic', {}).get('interface_count', 0)}",
-        f"接口异常数: {summary.get('interfaces', {}).get('down_or_shutdown', 0)}",
+        f"接口总数: {interface_total}",
+        f"接口异常数: {interface_abnormal}",
         f"BGP 邻居: {summary.get('protocol', {}).get('bgp', {})}",
         f"OSPF 邻居: {summary.get('protocol', {}).get('ospf', {})}",
         f"路由统计: {summary.get('routing', {})}",

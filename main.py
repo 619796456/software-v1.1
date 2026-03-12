@@ -8,7 +8,6 @@ from analyzer.analyzer import analyze_config, summarize_network_state
 from analyzer.parser import parse_device_text
 from analyzer.report import write_html_report, write_text_report
 from analyzer.visualize import build_topology
-from gui_app import run_gui
 
 
 def build_payload(device_name: str, text: str, vendor: str | None = None) -> dict:
@@ -57,6 +56,8 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.gui or (not args.device_name and not args.config_file and not args.output):
+        from gui_app import run_gui
+
         run_gui()
         return
 
