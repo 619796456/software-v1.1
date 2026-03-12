@@ -39,10 +39,6 @@ def build_html_report(payload: dict) -> str:
     topology = payload.get("topology", {})
 
     basic, interfaces, protocol, routing = _summary_blocks(summary)
-    basic = summary.get("basic", {})
-    interfaces = summary.get("interfaces", {})
-    protocol = summary.get("protocol", {})
-    routing = summary.get("routing", {})
 
     finding_rows = "\n".join(
         f"""
