@@ -1,22 +1,35 @@
 from __future__ import annotations
 
-import html
 from pathlib import Path
 
 
-def _badge(text: str, color: str) -> str:
-    return (
-        f"<span style='display:inline-block;padding:2px 10px;border-radius:999px;"
-        f"background:{color};color:#fff;font-size:12px'>{html.escape(text)}</span>"
-    )
-
-
-def _finding_color(severity: str) -> str:
+def _finding_badge_class(severity: str) -> str:
     return {
-        "high": "#dc2626",
-        "medium": "#d97706",
-        "low": "#2563eb",
-    }.get(severity, "#475569")
+        "high": "badge-high",
+        "medium": "badge-medium",
+        "low": "badge-low",
+    }.get(severity, "badge-low")
+
+
+def _summary_blocks(summary: dict) -> tuple[dict, dict, dict, dict]:
+    basic = summary.get("basic", {})
+    interfaces = summary.get("interfaces", {})
+    interface_legacy = summary.get("interface", {})
+
+    if not basic and interface_legacy:
+        basic = {"interface_count": interface_legacy.get("total", 0)}
+    if not interfaces and interface_legacy:
+        interfaces = {
+            "total": interface_legacy.get("total", 0),
+            "shutdown": interface_legacy.get("shutdown", 0),
+            "line_protocol_down": interface_legacy.get("line_protocol_down", 0),
+            "down_or_shutdown": interface_legacy.get("shutdown", 0) + interface_legacy.get("line_protocol_down", 0),
+            "up": interface_legacy.get("up", 0),
+        }
+
+    protocol = summary.get("protocol", {})
+    routing = summary.get("routing", {})
+    return basic, interfaces, protocol, routing
 
 
 def build_html_report(payload: dict) -> str:
@@ -25,55 +38,59 @@ def build_html_report(payload: dict) -> str:
     findings = payload.get("findings", [])
     topology = payload.get("topology", {})
 
-    iface = summary.get("interface", {})
-    protocol = summary.get("protocol", {})
-    routing = summary.get("routing", {})
+    basic, interfaces, protocol, routing = _summary_blocks(summary)
 
-    finding_rows = "".join(
-        (
-            "<tr>"
-            f"<td>{_badge(f.get('severity', 'unknown'), _finding_color(f.get('severity', 'unknown')))}</td>"
-            f"<td>{html.escape(str(f.get('type', '')))}</td>"
-            f"<td>{html.escape(str(f.get('message', '')))}</td>"
-            "</tr>"
-        )
+    finding_rows = "\n".join(
+        f"""
+        <tr>
+          <td><span class='badge {_finding_badge_class(f.get('severity', 'low'))}'>{f.get('severity', 'low')}</span></td>
+          <td>{f.get('type', '-')}</td>
+          <td>{f.get('message', '-')}</td>
+        </tr>
+        """
         for f in findings
-    ) or "<tr><td colspan='3'>未发现异常</td></tr>"
+    ) or "<tr><td colspan='3'>未发现异常。</td></tr>"
 
     return f"""
 <!doctype html>
 <html lang='zh-CN'>
 <head>
-  <meta charset='utf-8'>
-  <meta name='viewport' content='width=device-width, initial-scale=1'>
-  <title>网络配置智能分析报告 - {html.escape(str(parsed.get('device_name', 'Unknown')))}</title>
+  <meta charset='UTF-8' />
+  <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+  <title>站场网络配置智能分析报告</title>
   <style>
-    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }}
-    .container {{ max-width: 1080px; margin: 24px auto; padding: 0 16px; }}
-    .header {{ background: linear-gradient(135deg,#2563eb,#0ea5e9); color: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 8px 24px rgba(37,99,235,.25); }}
-    .grid {{ display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 12px; margin-top: 16px; }}
-    .card {{ background: #fff; border-radius: 12px; padding: 14px; border: 1px solid #e2e8f0; }}
-    .label {{ color: #64748b; font-size: 13px; }}
-    .value {{ font-size: 22px; font-weight: 700; margin-top: 4px; }}
-    h2 {{ margin: 22px 0 10px; }}
-    table {{ width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; }}
-    th, td {{ text-align: left; padding: 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }}
-    th {{ background: #f1f5f9; }}
-    .muted {{ color: #64748b; }}
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans CJK SC', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif; margin: 0; background: #f5f7fb; color: #1f2d3d; }}
+    .container {{ max-width: 1080px; margin: 24px auto; padding: 0 16px 40px; }}
+    .header {{ background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 18px rgba(0,0,0,0.06); }}
+    h1 {{ margin: 0 0 8px; font-size: 24px; }}
+    h2 {{ margin: 24px 0 12px; font-size: 20px; }}
+    .muted {{ color: #61738a; }}
+    .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }}
+    .card {{ background: #fff; border-radius: 10px; padding: 14px; box-shadow: 0 3px 14px rgba(0,0,0,0.05); }}
+    .label {{ font-size: 12px; color: #6c7a89; margin-bottom: 6px; }}
+    .value {{ font-size: 20px; font-weight: 700; }}
+    table {{ width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 3px 14px rgba(0,0,0,0.05); }}
+    th, td {{ padding: 10px 12px; border-bottom: 1px solid #edf1f7; font-size: 14px; text-align: left; }}
+    th {{ background: #f8fafc; }}
+    .badge {{ display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; color: #fff; }}
+    .badge-high {{ background: #e53935; }}
+    .badge-medium {{ background: #fb8c00; }}
+    .badge-low {{ background: #43a047; }}
   </style>
 </head>
 <body>
   <div class='container'>
     <div class='header'>
-      <h1 style='margin:0'>站场网络配置智能分析报告</h1>
-      <p style='margin:8px 0 0'>设备: <b>{html.escape(str(parsed.get('device_name', '-')))}</b> ｜ 厂商: <b>{html.escape(str(parsed.get('vendor', '-')))}</b> ｜ 本地AS: <b>{html.escape(str(parsed.get('local_as', '-')))}</b></p>
+      <h1>站场网络配置智能分析报告（离线）</h1>
+      <div class='muted'>设备：{parsed.get('device_name', '-') } ｜ 厂商：{parsed.get('vendor', '-') } ｜ 本地AS：{parsed.get('local_as', '-')}</div>
     </div>
 
     <h2>综合状态</h2>
     <div class='grid'>
-      <div class='card'><div class='label'>接口总数 / Up / Shutdown</div><div class='value'>{iface.get('total', 0)} / {iface.get('up', 0)} / {iface.get('shutdown', 0)}</div></div>
-      <div class='card'><div class='label'>BGP 邻居 (总 / 正常 / 异常)</div><div class='value'>{protocol.get('bgp', {}).get('total', 0)} / {protocol.get('bgp', {}).get('established', 0)} / {protocol.get('bgp', {}).get('abnormal', 0)}</div></div>
-      <div class='card'><div class='label'>OSPF 邻居 (总 / 正常 / 异常)</div><div class='value'>{protocol.get('ospf', {}).get('total', 0)} / {protocol.get('ospf', {}).get('healthy', 0)} / {protocol.get('ospf', {}).get('abnormal', 0)}</div></div>
+      <div class='card'><div class='label'>接口总数</div><div class='value'>{basic.get('interface_count', 0)}</div></div>
+      <div class='card'><div class='label'>接口异常数</div><div class='value'>{interfaces.get('down_or_shutdown', 0)}</div></div>
+      <div class='card'><div class='label'>BGP 邻居 (总/正常/异常)</div><div class='value'>{protocol.get('bgp', {}).get('total', 0)} / {protocol.get('bgp', {}).get('established', 0)} / {protocol.get('bgp', {}).get('abnormal', 0)}</div></div>
+      <div class='card'><div class='label'>OSPF 邻居 (总/正常/异常)</div><div class='value'>{protocol.get('ospf', {}).get('total', 0)} / {protocol.get('ospf', {}).get('healthy', 0)} / {protocol.get('ospf', {}).get('abnormal', 0)}</div></div>
       <div class='card'><div class='label'>路由统计 (总/直连/静态/BGP/OSPF)</div><div class='value'>{routing.get('total', 0)} / {routing.get('direct', 0)} / {routing.get('static', 0)} / {routing.get('bgp', 0)} / {routing.get('ospf', 0)}</div></div>
     </div>
 
@@ -96,5 +113,40 @@ def build_html_report(payload: dict) -> str:
 """
 
 
+def build_text_report(payload: dict) -> str:
+    parsed = payload.get("parsed", {})
+    summary = payload.get("summary", {})
+    findings = payload.get("findings", [])
+
+    basic, interfaces, protocol, routing = _summary_blocks(summary)
+
+    lines = [
+        "站场网络配置智能分析报告（离线）",
+        "=" * 40,
+        f"设备: {parsed.get('device_name', '-')}",
+        f"厂商: {parsed.get('vendor', '-')}",
+        f"本地AS: {parsed.get('local_as', '-')}",
+        "",
+        "[接口与协议统计]",
+        f"接口总数: {basic.get('interface_count', 0)}",
+        f"接口异常数: {interfaces.get('down_or_shutdown', 0)}",
+        f"BGP 邻居: {protocol.get('bgp', {})}",
+        f"OSPF 邻居: {protocol.get('ospf', {})}",
+        f"路由统计: {routing}",
+        "",
+        "[异常与非标准化提示]",
+    ]
+    if findings:
+        for i, finding in enumerate(findings, start=1):
+            lines.append(f"{i}. [{finding.get('severity', 'low')}] {finding.get('type')}: {finding.get('message')}")
+    else:
+        lines.append("无异常")
+    return "\n".join(lines)
+
+
 def write_html_report(payload: dict, output_path: str | Path) -> None:
     Path(output_path).write_text(build_html_report(payload), encoding="utf-8")
+
+
+def write_text_report(payload: dict, output_path: str | Path) -> None:
+    Path(output_path).write_text(build_text_report(payload), encoding="utf-8")
