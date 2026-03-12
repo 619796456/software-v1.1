@@ -178,3 +178,29 @@ def test_text_report_and_topology_image(tmp_path: Path) -> None:
         pytest.skip("matplotlib/networkx not installed in test environment")
     assert saved is not None
     assert out_png.exists()
+
+
+def test_report_uses_interface_summary_schema() -> None:
+    payload = {
+        "parsed": {"device_name": "R1", "vendor": "huawei", "local_as": 65001},
+        "summary": {
+            "interface": {"total": 3, "shutdown": 1, "line_protocol_down": 1},
+            "protocol": {"bgp": {"total": 0, "established": 0, "abnormal": 0}, "ospf": {"total": 0, "healthy": 0, "abnormal": 0}},
+            "routing": {"total": 0, "direct": 0, "static": 0, "bgp": 0, "ospf": 0},
+        },
+        "findings": [],
+        "topology": {"nodes": [], "links": []},
+    }
+
+    html = build_html_report(payload)
+    txt = build_text_report(payload)
+
+    assert ">3<" in html
+    assert ">2<" in html
+    assert "接口总数: 3" in txt
+    assert "接口异常数: 2" in txt
+
+
+def test_cli_help_works_without_loading_gui() -> None:
+    result = subprocess.run([sys.executable, "main.py", "--help"], check=True, capture_output=True, text=True)
+    assert "--gui" in result.stdout
