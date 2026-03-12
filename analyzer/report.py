@@ -39,6 +39,10 @@ def build_html_report(payload: dict) -> str:
     topology = payload.get("topology", {})
 
     basic, interfaces, protocol, routing = _summary_blocks(summary)
+    basic = summary.get("basic", {})
+    interfaces = summary.get("interfaces", {})
+    protocol = summary.get("protocol", {})
+    routing = summary.get("routing", {})
 
     finding_rows = "\n".join(
         f"""
@@ -133,6 +137,11 @@ def build_text_report(payload: dict) -> str:
         f"BGP 邻居: {protocol.get('bgp', {})}",
         f"OSPF 邻居: {protocol.get('ospf', {})}",
         f"路由统计: {routing}",
+        f"接口总数: {summary.get('basic', {}).get('interface_count', 0)}",
+        f"接口异常数: {summary.get('interfaces', {}).get('down_or_shutdown', 0)}",
+        f"BGP 邻居: {summary.get('protocol', {}).get('bgp', {})}",
+        f"OSPF 邻居: {summary.get('protocol', {}).get('ospf', {})}",
+        f"路由统计: {summary.get('routing', {})}",
         "",
         "[异常与非标准化提示]",
     ]
